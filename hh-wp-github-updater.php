@@ -3,7 +3,7 @@
 /**
  * Plugin Name: GitHub Updater
  * Description: Fetch updates to plugins and themes (with appropriate Update URIs) from public GitHub repositories.
- * Version: 0.2
+ * Version: 0.2.1
  * Author: Mark Thompson
  * Update URI: https://github.com/hackhitchin/hh-wp-github-updater
  */
@@ -154,6 +154,8 @@ add_filter('upgrader_source_selection', function($source, $remote, $upgrader, $e
     
     // ... and replace with the plain name of the repository.
     $updateSource .= substr($packageURI, strrpos($packageURI, '/'));
+
+    $updateSource = trailingslashit($updateSource);
 
     if ($source != $updateSource) {
         $upgrader->skin->feedback('Renaming: %s -> %s', $source, $updateSource);
