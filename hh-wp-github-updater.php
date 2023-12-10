@@ -169,7 +169,8 @@ add_filter('upgrader_package_options', function($options) {
     
     if ($packageScheme == SCHEME) {
         $options['package'] = str_replace(SCHEME . '://', 'https://github.com/', $packageURI) . '/archive/refs/heads/master.zip';
-        $options['hook_extra'] ??= [];
+        if (!array_key_exists('hook_extra', $options))
+            $options['hook_extra'] = [];
         $options['hook_extra']['hh-wp-github-updater'] = [
             'source' => $packageURI
         ];
