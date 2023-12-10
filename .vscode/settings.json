@@ -1,6 +1,0 @@
-{
-    "deploy.target": "mark@holmes.artificetech.com:/var/www/html/wp-content/plugins/hh-wp-github-updater",
-    "intelephense.environment.includePaths": [
-        "d:\\Users\\Mark Thompson\\git\\include\\wordpress"
-    ]
-}

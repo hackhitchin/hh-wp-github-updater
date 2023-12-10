@@ -3,15 +3,16 @@
 /**
  * Plugin Name: GitHub Updater
  * Description: Fetch updates to plugins and themes (with appropriate Update URIs) from public GitHub repositories.
- * Version: 0.1
+ * Version: 0.2
  * Author: Mark Thompson
  * Update URI: https://github.com/hackhitchin/hh-wp-github-updater
  */
 
-
 namespace HitchinHackspace\GitHubUpdater;
 
 use Throwable;
+
+const SCHEME = 'github';
 
 function get_http_status($url) {
     static $context;
@@ -65,6 +66,12 @@ function get_raw_uri($repoURI, $filename) {
     return "$rawURI/$filename";
 }
 
+function get_update_package_uri($repoURI) {
+    // Get the location of machine-readable files.
+    // We'll invent a new github:// scheme so we can detect (later on) if it's a package we're in charge of.
+    return str_replace('https://github.com/', SCHEME . '://', $repoURI);
+}
+
 // Fetch update information from GitHub, given a repository and a file within it containing metadata.
 function get_github_file_data($repoURI, $filename, $keys) {
     $infoURI = get_raw_uri($repoURI, $filename);
@@ -76,7 +83,7 @@ function get_github_file_data($repoURI, $filename, $keys) {
 
         if ($data) {
             // Tell WordPress where to get the archive, if it wants.
-            $data['package'] = "$repoURI/archive/refs/heads/master.zip";
+            $data['package'] = get_update_package_uri($repoURI);
 
             error_log("Got update information: " . print_r($data, true));
         }
@@ -129,4 +136,44 @@ add_filter('update_themes_github.com', function($update, $theme_data, $theme_sty
     ]);
 
     return $githubInfo ?: $update;
- }, 10, 4);
+}, 10, 4);
+
+add_filter('upgrader_source_selection', function($source, $remote, $upgrader, $extra) {
+    $updaterExtra = $extra['hh-wp-github-updater'] ?? [];
+    if (!$updaterExtra)
+        return $source;
+
+    $packageURI = $updaterExtra['source'] ?? '';
+    if (!$packageURI)
+        return $source;
+
+    $upgrader->skin->feedback('Handling GitHub update for: %s', $packageURI);
+
+    // Ignore whatever name was in the archive...
+    $updateSource = substr($source, 0, strrpos($source, '/', -2));
+    
+    // ... and replace with the plain name of the repository.
+    $updateSource .= substr($packageURI, strrpos($packageURI, '/'));
+
+    if ($source != $updateSource) {
+        $upgrader->skin->feedback('Renaming: %s -> %s', $source, $updateSource);
+        move_dir($source, $updateSource);
+    }
+
+    return $updateSource;
+}, 10, 4);
+
+add_filter('upgrader_package_options', function($options) {
+    $packageURI = $options['package'];
+    $packageScheme = parse_url($packageURI, PHP_URL_SCHEME);
+    
+    if ($packageScheme == SCHEME) {
+        $options['package'] = str_replace(SCHEME . '://', 'https://github.com/', $packageURI) . '/archive/refs/heads/master.zip';
+        $options['hook_extra'] ??= [];
+        $options['hook_extra']['hh-wp-github-updater'] = [
+            'source' => $packageURI
+        ];
+    }
+
+    return $options;
+});
